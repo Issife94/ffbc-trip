@@ -5,12 +5,34 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowRight, Calendar, Check, Clock3, LogOut, Mail, Phone, Trash2, UserRound } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { AddParticipantModal } from "@/components/add-participant-modal"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Participant } from "@/app/page"
 
 const ADULT_PRICE = 1500
 const CHILD_PRICE = 1000
+
+const mockOptionsSupp = [
+  {
+    id: 2,
+    nom: "Promenade à cheval",
+    description: "Balade guidée en pleine nature",
+    prix: 15000, // 150€
+  },
+  {
+    id: 3,
+    nom: "Workout avec un coach sportif",
+    description: "Session fitness personnalisée",
+    prix: 10000, // 100€
+  },
+  {
+    id: 4,
+    nom: "Virée en jet ski",
+    description: "Session jet ski 30 minutes",
+    prix: 13000, // 130€
+  },
+] as const
 
 const trip = {
   title: "VOYAGE NBA EN FAMILLE À NEW YORK",
@@ -75,6 +97,14 @@ export default function DashboardPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null)
   const [optionQty, setOptionQty] = useState(1)
+  type RightOptionId = (typeof mockOptionsSupp)[number]["id"]
+  const [optionsSuppState, setOptionsSuppState] = useState<
+    Record<RightOptionId, { checked: boolean; qty: number }>
+  >({
+    2: { checked: false, qty: 1 },
+    3: { checked: false, qty: 1 },
+    4: { checked: false, qty: 1 },
+  })
   // Logique PocketBase : sync avec la collection 'participants'
 
   useEffect(() => {
@@ -112,7 +142,23 @@ export default function DashboardPage() {
     return ADULT_PRICE
   }
 
-  const totalPrice = participants.reduce((sum, p) => sum + getParticipantPrice(p), 0)
+  const baseTravelPrice = participants.reduce(
+    (sum, p) => sum + getParticipantPrice(p),
+    0,
+  )
+
+  const helicopterTotal = optionQty * 2500
+
+  const rightOptionsTotal = mockOptionsSupp.reduce((sum, opt) => {
+    const state = optionsSuppState[opt.id]
+    if (!state?.checked) return sum
+    return sum + (opt.prix / 100) * state.qty
+  }, 0)
+
+  const totalOptionsGeneral = helicopterTotal + rightOptionsTotal
+
+  const totalPrice = baseTravelPrice + helicopterTotal + rightOptionsTotal
+
   const depositAmount = Math.round(totalPrice * 0.35)
   const paidAmount = depositAmount
   const remainingAmount = Math.max(totalPrice - paidAmount, 0)
@@ -120,14 +166,28 @@ export default function DashboardPage() {
   useEffect(() => {
     const payload = {
       participants,
-      options:
+      options: [
         optionQty > 0
-          ? [{ id: "helicopter", label: "Tour en hélicoptère", unitPrice: 2500, quantity: optionQty }]
-          : [],
+          ? {
+              id: "helicopter",
+              label: "Tour en hélicoptère",
+              unitPrice: 2500,
+              quantity: optionQty,
+            }
+          : null,
+        ...mockOptionsSupp
+          .filter((opt) => optionsSuppState[opt.id].checked)
+          .map((opt) => ({
+            id: String(opt.id),
+            label: opt.nom,
+            unitPrice: opt.prix / 100,
+            quantity: optionsSuppState[opt.id].qty,
+          })),
+      ].filter(Boolean),
       paidAlready: paidAmount,
     }
     window.localStorage.setItem("ffbc_active_booking", JSON.stringify(payload))
-  }, [participants, optionQty, paidAmount])
+  }, [participants, optionQty, optionsSuppState, paidAmount])
 
   const handleOpenChange = (open: boolean) => {
     setIsModalOpen(open)
@@ -159,16 +219,23 @@ export default function DashboardPage() {
   }
 
   const preparePayment = () => {
-    const options =
+    const options = [
       optionQty > 0
-        ? [{ label: "Tour en hélicoptère", price: 2500 * optionQty }]
-        : []
+        ? { label: "Tour en hélicoptère", price: 2500 * optionQty }
+        : null,
+      ...mockOptionsSupp
+        .filter((opt) => optionsSuppState[opt.id].checked)
+        .map((opt) => ({
+          label: opt.nom,
+          price: (opt.prix / 100) * optionsSuppState[opt.id].qty,
+        })),
+    ].filter(Boolean)
     const payload = {
       participants: participants.map((p) => `${p.firstName} ${p.lastName}`),
       options,
-      total_voyage: totalPrice + options.reduce((sum, opt) => sum + opt.price, 0),
+      total_voyage: totalPrice,
       deja_paye: paidAmount,
-      acompte_minimum: remainingAmount,
+      acompte_minimum: depositAmount,
       flux: "dashboard" as const,
     }
     window.localStorage.setItem("current_payment", JSON.stringify(payload))
@@ -296,6 +363,9 @@ export default function DashboardPage() {
             <DashboardOptionsPanel
               optionQty={optionQty}
               setOptionQty={setOptionQty}
+              optionsSuppState={optionsSuppState}
+              setOptionsSuppState={setOptionsSuppState}
+              totalOptionsGeneral={totalOptionsGeneral}
             />
           ) : activeTab === "contrat" ? (
             <DashboardContractPanel />
@@ -437,9 +507,22 @@ function DashboardPaymentsPanel({
 function DashboardOptionsPanel({
   optionQty,
   setOptionQty,
+  optionsSuppState,
+  setOptionsSuppState,
+  totalOptionsGeneral,
 }: {
   optionQty: number
   setOptionQty: Dispatch<SetStateAction<number>>
+  optionsSuppState: Record<
+    (typeof mockOptionsSupp)[number]["id"],
+    { checked: boolean; qty: number }
+  >
+  setOptionsSuppState: Dispatch<
+    SetStateAction<
+      Record<(typeof mockOptionsSupp)[number]["id"], { checked: boolean; qty: number }>
+    >
+  >
+  totalOptionsGeneral: number
 }) {
   const pricePer = 2500
   const total = optionQty * pricePer
@@ -450,60 +533,173 @@ function DashboardOptionsPanel({
 
   return (
     <section className="max-w-[1120px]">
-      <h2 className="text-[16px] font-bold text-[#0C4149]">
-        Options disponibles
-      </h2>
-      <p className="mt-1 text-[14px] text-[#0C414980]">
-        Personnalisez votre voyage avec des options supplémentaires
-      </p>
-
-      <div className="mt-6 rounded-[8px] border border-[#0C414933] bg-white shadow-none">
-        <div className="p-6">
-          <h3 className="text-[15px] font-bold text-[#0C4149]">
-            Tour en hélicoptère
-          </h3>
-          <p className="mt-1 text-[14px] text-[#0C414980]">
-            Survol du parc en hélicoptère (30 min)
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start items-start">
+        {/* Colonne gauche */}
+        <div
+          className="min-w-0 max-h-[500px] overflow-y-auto pr-2"
+          style={{ scrollbarWidth: "thin", scrollbarColor: "#0C414933 transparent" }}
+        >
+          <h2 className="text-[16px] font-bold text-[#0C4149]">
+            Options disponibles
+          </h2>
+          <p className="mt-1 text-[14px] text-[#0C4149CC]">
+            Personnalisez votre voyage avec des options supplémentaires
           </p>
-          <div className="mt-4 text-[15px] font-bold text-[#0C4149]">
-            {pricePer}€
-          </div>
 
-          <div className="mt-7 border-t border-[#0C414933] pt-5">
-            <div className="text-[14px] font-normal text-[#0C414980]">
-              Nombre de participants
+          <div className="mt-6 rounded-[8px] border border-[#0C414933] bg-white shadow-none">
+            <div className="p-6">
+              <h3 className="text-[15px] font-bold text-[#0C4149]">
+                Tour en hélicoptère
+              </h3>
+              <p className="mt-1 text-[14px] text-[#0C4149CC]">
+                Survol du parc en hélicoptère (30 min)
+              </p>
+              <div className="mt-4 text-[15px] font-bold text-[#0C4149]">
+                {pricePer}€
+              </div>
+
+              <div className="mt-7 border-t border-[#0C414933] pt-5">
+                <div className="text-[14px] font-normal text-[#0C4149CC]">
+                  Nombre de participants
+                </div>
+
+                <div className="mt-3">
+                  <Select
+                    value={selectValue}
+                    onValueChange={(v) => {
+                      setSelectValue(v)
+                      setOptionQty(Number.parseInt(v, 10))
+                    }}
+                  >
+                    <SelectTrigger className="w-full h-12 border-[#0C414933] text-[#0C4149] cursor-pointer">
+                      <SelectValue placeholder="Nombre de participants" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-3">
-              <Select
-                value={selectValue}
-                onValueChange={(v) => {
-                  setSelectValue(v)
-                  setOptionQty(Number.parseInt(v, 10))
-                }}
-              >
-                <SelectTrigger className="w-full h-12 border-[#0C414933] text-[#0C4149] cursor-pointer">
-                  <SelectValue placeholder="Nombre de participants" />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {n}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex items-center justify-between border-t border-[#0C414933] px-6 py-4">
+              <span className="text-[14px] font-normal text-[#0C4149CC]">
+                Total
+              </span>
+              <span className="text-[15px] font-bold text-[#0C4149]">
+                {total}€
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-[8px] border border-[#0C414933] bg-white">
+            <div className="flex items-center justify-between px-6 py-4">
+              <span className="text-[14px] font-normal text-[#0C4149CC]">
+                Total général des options
+              </span>
+              <span className="text-[15px] font-bold text-[#0C4149]">
+                {totalOptionsGeneral}€
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-[#0C414933] px-6 py-4">
-          <span className="text-[14px] font-normal text-[#0C414980]">
-            Total
-          </span>
-          <span className="text-[15px] font-bold text-[#0C4149]">
-            {total}€
-          </span>
+        {/* Colonne droite */}
+        <div
+          className="min-w-0 max-h-[500px] overflow-y-auto pr-2"
+          style={{ scrollbarWidth: "thin", scrollbarColor: "#0C414933 transparent" }}
+        >
+          <h3 className="mt-0 text-[15px] font-bold text-[#0C4149]">
+            Options supplémentaires
+          </h3>
+          <p className="mt-1 text-[14px] text-[#0C4149CC]">
+            Cochez les options souhaitées
+          </p>
+
+          <div className="mt-6 flex flex-col gap-4">
+            {mockOptionsSupp.map((opt) => {
+              const state = optionsSuppState[opt.id]
+              const checked = state?.checked ?? false
+              const qty = state?.qty ?? 1
+              const optionPriceEuro = opt.prix / 100
+              const optionTotal = checked ? optionPriceEuro * qty : 0
+
+              return (
+                <div
+                  key={opt.id}
+                  className="rounded-[8px] border border-[#0C414933] bg-white p-4"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => {
+                          const isChecked = v === true
+                          setOptionsSuppState((prev) => ({
+                            ...prev,
+                            [opt.id]: { checked: isChecked, qty },
+                          }))
+                        }}
+                        className="border-[#0C414933] data-[state=checked]:bg-[#0C4149] data-[state=checked]:border-[#0C4149]"
+                        aria-label={`Option ${opt.nom}`}
+                      />
+                      <span className="text-[14px] font-semibold text-[#0C4149]">
+                        {opt.nom}
+                      </span>
+                    </div>
+
+                    <span className="text-[14px] font-bold text-[#0C4149]">
+                      {optionPriceEuro}€
+                    </span>
+                  </div>
+
+                  {checked ? (
+                    <div className="mt-4">
+                      <div className="text-[14px] font-normal text-[#0C4149CC]">
+                        Nombre de participants
+                      </div>
+                      <div className="mt-3">
+                        <Select
+                          value={String(qty)}
+                          onValueChange={(v) => {
+                            const nextQty = Number.parseInt(v, 10)
+                            setOptionsSuppState((prev) => ({
+                              ...prev,
+                              [opt.id]: { checked: true, qty: nextQty },
+                            }))
+                          }}
+                        >
+                          <SelectTrigger className="w-full h-12 border-[#0C414933] text-[#0C4149] cursor-pointer">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                              <SelectItem key={n} value={String(n)}>
+                                {n}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-4 border-t border-[#0C414933] pt-4 flex items-center justify-between">
+                    <span className="text-[14px] font-normal text-[#0C4149CC]">
+                      Total
+                    </span>
+                    <span className="text-[15px] font-bold text-[#0C4149]">
+                      {optionTotal}€
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
     </section>
@@ -511,40 +707,209 @@ function DashboardOptionsPanel({
 }
 
 function DashboardContractPanel() {
+  const [accepted, setAccepted] = useState(false)
+  const [signedAt, setSignedAt] = useState<string | null>(null)
+
+  const handleSign = () => {
+    if (!accepted || signedAt) return
+    const formatted = new Date().toLocaleDateString("fr-FR")
+    setSignedAt(formatted)
+  }
+
   return (
     <section className="w-full max-w-[1120px] rounded-[8px] border border-[#0C414933] bg-white p-6 shadow-none">
       <h2 className="text-[16px] font-bold text-[#0C4149]">Contrat de vente et CGV</h2>
 
-      <div className="mt-5 max-h-[500px] overflow-y-auto rounded-[8px] border border-[#0C414933] bg-white p-5 text-[14px] leading-relaxed text-[#0C4149]">
-        {/* Ce contenu sera récupéré via PocketBase */}
-        <p>
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque
-          pellentesque volutpat odio, vitae feugiat lorem varius a. Integer
-          sollicitudin risus a libero posuere, vitae facilisis erat aliquet.
-        </p>
-        <p className="mt-4">
-          Sed ultricies efficitur erat, in malesuada elit volutpat sed. Duis
-          fringilla finibus magna, ac scelerisque mauris consectetur ac.
-          Curabitur non vestibulum lorem. Morbi eleifend, erat in tristique
-          commodo, enim risus bibendum velit, id luctus augue nibh a mauris.
-        </p>
-        <p className="mt-4">
-          Aenean posuere ligula eget neque dictum, quis varius est posuere.
-          Integer faucibus faucibus lorem, nec interdum tortor euismod sed.
-          Nullam et justo nec erat ultrices feugiat. Sed luctus, ligula sit
-          amet ultricies luctus, purus orci congue lectus, at commodo massa
-          augue ac mauris.
-        </p>
-        <p className="mt-4">
-          Praesent vulputate luctus nisl, vel commodo nulla pharetra quis.
-          Mauris eget feugiat augue. Pellentesque habitant morbi tristique
-          senectus et netus et malesuada fames ac turpis egestas.
-        </p>
+      <div className="mt-5 max-h-[400px] overflow-y-auto rounded-[8px] border border-[#0C414933] bg-white p-6 text-[14px] leading-[1.6] text-[#0C4149CC]">
+        <h3 className="font-semibold text-[#0C4149] text-[15px] leading-[1.6] mb-4">
+          CONTRAT DE VENTE DE SEJOURS NBA
+        </h3>
+
+        <div className="space-y-4">
+          <div>
+            <span className="font-semibold text-[#0C4149]">Vendeur : </span>
+            <div className="mt-1">
+              <div>SARL F.F.B. Camps</div>
+              <div>1 Impasse du PEBE</div>
+              <div>64121 Serres Castet</div>
+              <div>SIRET : 49501277500021</div>
+              <div>Licence d'agence de voyage : IM64240002</div>
+              <div>
+                Assurance responsabilite civile professionnelle :
+              </div>
+              <div>
+                Assurance Hiscox France, 19 rue Louis le Grand 75002 Paris
+              </div>
+              <div>
+                (Titulaire du contrat n°HSXIN320044454A souscrit au
+                auprès de la compagnie)
+              </div>
+              <div>Représentée par : Olivier Coustal</div>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-[#0C4149] text-[14px]">
+              1. Objet du contrat
+            </h4>
+            <p className="mt-2">
+              Le present contrat a pour objet la vente d'un sejour organise par
+              l'Agence aux Etats-Unis, principalement a Los Angeles et/ou New
+              York, axe sur le theme du basketball, comprenant les vols,
+              l'hebergement, les billets pour les matchs, les transferts, les
+              activites en fonction des sejours.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-[#0C4149] text-[14px]">
+              2. Description du séjour
+            </h4>
+            <p className="mt-2 mb-2">
+              Le sejour comprend :
+            </p>
+            <ul className="list-disc pl-5">
+              <li>
+                Hébergement : hôtel 3/4 étoiles à proximité des sites d'intérêt
+              </li>
+              <li>
+                Activités : billets pour matchs de basketball (visites guidées
+                en fonction des séjours)
+              </li>
+              <li>
+                Transport : vols aller-retour, transferts aéroport/hôtel
+              </li>
+              <li>
+                Assurance : assurance optionnelle via Chapka
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-[#0C4149] text-[14px]">
+              3. Prix et modalités de paiement
+            </h4>
+            <ul className="list-disc pl-5 mt-2">
+              <li>Prix total du séjour : TTC</li>
+              <li>Acompte à verser à la réservation : 35%</li>
+              <li>Solde à payer : 40 jours avant le départ</li>
+              <li>
+                Modalités de paiement : CB, virement, chèque, ANCV à hauteur de
+                500€
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-[#0C4149] text-[14px]">
+              4. Droit de rétractation
+            </h4>
+            <p className="mt-2">
+              Conformément à l'article L.221-28 du Code de la consommation, le
+              Client ne dispose pas d'un droit de rétractation pour les
+              prestations de services d'hébergement, de transport, de
+              restauration ou de loisirs réservées à une date ou une période
+              déterminée.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-[#0C4149] text-[14px]">
+              5. Modification et annulation
+            </h4>
+            <p className="mt-2 font-normal">
+              Annulation par le Client :
+            </p>
+            <ul className="list-disc pl-5">
+              <li>Plus de 80 jours avant le départ : 50% du prix total TTC</li>
+              <li>
+                De 80 à 41 jours avant le départ : 80% du prix total TTC
+              </li>
+              <li>
+                Moins de 40 jours avant le départ : 100% du prix total TTC
+              </li>
+            </ul>
+            <p className="mt-2">
+              Toute demande d'annulation doit être notifiée par écrit.
+            </p>
+            <p className="mt-2">
+              Annulation ou modification par l'Agence :
+            </p>
+            <p className="mt-2">
+              En cas d'impossibilité d'exécuter le séjour en raison de
+              circonstances exceptionnelles, l'Agence proposera une solution
+              alternative ou un remboursement intégral.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-[#0C4149] text-[14px]">
+              6. Assurance et responsabilité
+            </h4>
+            <p className="mt-2">
+              L'Agence recommande au Client de souscrire une assurance annulation,
+              assistance et rapatriement (Chapka Assurances).
+            </p>
+            <p className="mt-2">
+              L'Agence ne pourra être tenue responsable en cas de force majeure
+              (catastrophes naturelles, grèves, épidémies).
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-[#0C4149] text-[14px]">
+              7. Données personnelles
+            </h4>
+            <p className="mt-2">
+              Les données personnelles du Client sont collectées conformément au
+              RGPD. Elles sont utilisées uniquement dans le cadre de la réservation
+              et de l'exécution du séjour.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-[#0C4149] text-[14px]">
+              8. Règlement des litiges
+            </h4>
+            <p className="mt-2">
+              En cas de litige, les parties s'efforceront de trouver une solution
+              amiable. À défaut, le litige sera soumis aux tribunaux compétents.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-[#0C4149] text-[14px]">
+              9. Mentions légales obligatoires
+            </h4>
+            <p className="mt-2">
+              Garant financier : APST 15, avenue Carnot 75017 Paris
+              <br />
+              Organisme de médiation : Médiateur du Tourisme et du Voyage.
+              <br />
+              Plateforme de règlement en ligne :
+              <br />
+              https://webgate.ec.europa.eu/odr
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-[#0C4149] text-[14px]">
+              10. Acceptation
+            </h4>
+            <p className="mt-2">
+              Le Client reconnaît avoir pris connaissance et accepté les termes du
+              présent contrat ainsi que les conditions générales de vente annexées.
+            </p>
+          </div>
+        </div>
       </div>
 
-      <label className="mt-5 flex items-start gap-3 text-[14px] text-[#0C4149]">
+      <label className="mt-5 flex cursor-pointer items-start gap-3 text-[14px] text-[#0C4149]">
         <input
           type="checkbox"
+          checked={accepted}
+          onChange={(e) => setAccepted(e.target.checked)}
+          disabled={signedAt != null}
           className="mt-[2px] size-[18px] cursor-pointer rounded-[4px] border border-[#0C4149] accent-[#0C4149]"
         />
         <span>
@@ -552,6 +917,23 @@ function DashboardContractPanel() {
           conditions générales de vente, et je les accepte sans réserve.
         </span>
       </label>
+
+      <div className="mt-4">
+        <Button
+          type="button"
+          disabled={!accepted || signedAt != null}
+          onClick={handleSign}
+          className="h-[49px] w-full rounded-[8px] bg-[#FA673E] hover:bg-[#FF592A] text-[15px] font-bold shadow-none"
+        >
+          Valider et signer
+        </Button>
+
+        {signedAt ? (
+          <div className="mt-4 inline-flex w-full justify-center rounded-full bg-[#0DBF78] px-4 py-1 text-[12px] font-semibold text-white">
+            Contrat signé le {signedAt}
+          </div>
+        ) : null}
+      </div>
     </section>
   )
 }
@@ -559,82 +941,110 @@ function DashboardContractPanel() {
 type DocumentStatus = "pending" | "valid" | "missing"
 
 function DashboardDocumentsPanel() {
-  const [selectedParticipant, setSelectedParticipant] = useState("Carl Winslow")
   const filePickerRef = useRef<HTMLInputElement>(null)
+  const [selectedParticipant, setSelectedParticipant] = useState("Carl Winslow")
 
-  const participants = ["Carl Winslow", "Marie Dupont", "John Doe"]
-  const documentsByParticipant: Record<
-    string,
-    Array<{ name: string; status: DocumentStatus; action: "replace" | "upload" }>
+  const DOCUMENTS_PAR_TYPE = {
+    famille: ["Passeport", "ESTA (Autorisation électronique de voyage)"],
+    adulte: ["Passeport", "ESTA (Autorisation électronique de voyage)"],
+    ado: [
+      "Passeport",
+      "ESTA (Autorisation électronique de voyage)",
+      "Livret de famille",
+      "AST (Autorisation de Sortie du Territoire)",
+      "CNI ou Passeport du parent signataire de l'AST",
+      "Copie carnet de santé avec vaccins à jour",
+      "Fiche sanitaire de liaison",
+    ],
+  } as const
+
+  const mockTrip = {
+    type: "famille",
+  } as const
+
+  type DocStatus = "valide" | "en_attente" | "manquant"
+
+  const statusBadgeClasses: Record<
+    DocStatus,
+    { bg: string; text: string; label: string }
   > = {
-    "Carl Winslow": [
-      { name: "Passeport", status: "pending", action: "replace" },
-      { name: "Visa", status: "valid", action: "upload" },
-      { name: "Carnet de vaccination", status: "missing", action: "upload" },
-      { name: "Assurance voyage", status: "missing", action: "upload" },
-      {
-        name: "ESTA (Autorisation électronique de voyage)",
-        status: "missing",
-        action: "upload",
-      },
-    ],
-    "Marie Dupont": [
-      { name: "Passeport", status: "valid", action: "replace" },
-      { name: "Visa", status: "pending", action: "upload" },
-      { name: "Carnet de vaccination", status: "missing", action: "upload" },
-      { name: "Assurance voyage", status: "valid", action: "replace" },
-      { name: "ESTA (Autorisation électronique de voyage)", status: "pending", action: "upload" },
-    ],
-    "John Doe": [
-      { name: "Passeport", status: "missing", action: "upload" },
-      { name: "Visa", status: "missing", action: "upload" },
-      { name: "Carnet de vaccination", status: "pending", action: "upload" },
-      { name: "Assurance voyage", status: "missing", action: "upload" },
-      { name: "ESTA (Autorisation électronique de voyage)", status: "missing", action: "upload" },
-    ],
+    valide: { bg: "bg-[#0DBF7820]", text: "text-[#0DBF78]", label: "Validé" },
+    en_attente: {
+      bg: "bg-[#F59E0B20]",
+      text: "text-[#F59E0B]",
+      label: "En attente de validation",
+    },
+    manquant: {
+      bg: "bg-[#D800121A]",
+      text: "text-[#D80012]",
+      label: "Manquant",
+    },
   }
 
-  const docs = documentsByParticipant[selectedParticipant] ?? []
-
-  const statusBadgeClasses: Record<DocumentStatus, string> = {
-    pending: "text-[#F59E0B] bg-[#FEF3C7]",
-    valid: "text-[#10B981] bg-[#D1FAE5]",
-    missing: "text-[#EF4444] bg-[#FEE2E2]",
-  }
-
-  const statusText: Record<DocumentStatus, string> = {
-    pending: "En attente de validation",
-    valid: "Valide",
-    missing: "Manquant",
-  }
+  const mockParticipants = [
+    {
+      id: 1,
+      nom: "Carl Winslow",
+      documents: [
+        { nom: "Passeport", statut: "en_attente" as const },
+        { nom: "ESTA", statut: "manquant" as const },
+      ],
+    },
+    {
+      id: 2,
+      nom: "Marie Dupont",
+      documents: [
+        { nom: "Passeport", statut: "valide" as const },
+        { nom: "ESTA", statut: "manquant" as const },
+      ],
+    },
+    {
+      id: 3,
+      nom: "John Doe",
+      documents: [
+        { nom: "Passeport", statut: "manquant" as const },
+        { nom: "ESTA", statut: "manquant" as const },
+      ],
+    },
+  ]
 
   const triggerFileAction = () => {
     filePickerRef.current?.click()
   }
 
+  const participant = mockParticipants.find((p) => p.nom === selectedParticipant)
+
+  const isSameDoc = (docFromParticipant: string, docFromType: string) => {
+    if (docFromParticipant === docFromType) return true
+    if (docFromParticipant === "ESTA" && docFromType.startsWith("ESTA")) return true
+    return false
+  }
+
+  const docsToRender = DOCUMENTS_PAR_TYPE[mockTrip.type]
+
   return (
     <section className="w-full max-w-[1120px] rounded-[8px] border border-[#0C414933] bg-white p-5 shadow-none sm:p-6">
       <h2 className="text-[16px] font-bold text-[#0C4149]">Documents requis</h2>
-      <p className="mt-1 text-[14px] text-[#0C414980]">
+      <p className="mt-1 text-[14px] text-[#0C4149CC]">
         Téléchargez les documents nécessaires pour votre voyage
       </p>
 
-      <div className="mt-5 overflow-x-auto whitespace-nowrap snap-x snap-mandatory scrollbar-hide [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <div className="mt-5 overflow-x-auto whitespace-nowrap scrollbar-hide [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <div className="inline-flex gap-2">
-          {participants.map((participant) => {
-            const isActive = participant === selectedParticipant
+          {mockParticipants.map((p) => {
+            const isActive = p.nom === selectedParticipant
             return (
               <button
-                key={participant}
+                key={p.id}
                 type="button"
-                onClick={() => setSelectedParticipant(participant)}
-                className={`snap-start rounded-[8px] border border-[#0C414933] px-3 py-2 text-[13px] ${
+                onClick={() => setSelectedParticipant(p.nom)}
+                className={`snap-start rounded-[8px] border px-3 py-2 text-[13px] ${
                   isActive
-                    ? "font-bold text-[#0C4149] underline decoration-[#FA673E] underline-offset-4"
-                    : "font-medium text-[#0C4149]"
+                    ? "bg-[#0C4149] border-[#0C4149] text-white"
+                    : "border-[#0C414933] bg-white text-[#0C4149]"
                 }`}
               >
-                {participant}
+                {p.nom}
               </button>
             )
           })}
@@ -642,30 +1052,47 @@ function DashboardDocumentsPanel() {
       </div>
 
       <div className="mt-5 flex flex-col gap-4">
-        {docs.map((doc) => (
-          <div
-            key={doc.name}
-            className="flex flex-col gap-3 rounded-[8px] border border-[#0C414933] bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] font-bold text-[#0C4149]">{doc.name}</p>
-              <span
-                className={`mt-2 inline-flex rounded-full px-3 py-1 text-[12px] font-medium ${statusBadgeClasses[doc.status]}`}
-              >
-                {statusText[doc.status]}
-              </span>
-            </div>
+        {docsToRender.map((docName) => {
+          // Visa n'est plus requis : ne figure pas dans DOCUMENTS_PAR_TYPE
+          const docFromParticipant = participant?.documents.find((d) =>
+            isSameDoc(d.nom, docName),
+          )
+          const status = docFromParticipant?.statut ?? ("manquant" as const)
+          const badge = statusBadgeClasses[status]
+          const actionLabel =
+            status === "manquant" ? "Télécharger" : "Remplacer"
 
-            <Button
-              type="button"
-              variant="outline"
-              onClick={triggerFileAction}
-              className="h-[40px] w-full rounded-[8px] border-[#0C4149] bg-white text-[#0C4149] shadow-none hover:bg-white hover:text-[#0C4149] sm:w-auto"
+          return (
+            <div
+              key={docName}
+              className="flex flex-col gap-3 rounded-[8px] border border-[#0C414933] bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
             >
-              {doc.action === "replace" ? "Remplacer" : "Télécharger"}
-            </Button>
-          </div>
-        ))}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-3">
+                  <FileTextIcon />
+                  <p className="truncate text-[15px] font-semibold text-[#0C4149]">
+                    {docName}
+                  </p>
+                </div>
+
+                <span
+                  className={`mt-2 inline-flex rounded-full px-3 py-1 text-[12px] font-medium ${badge.bg} ${badge.text}`}
+                >
+                  {badge.label}
+                </span>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={triggerFileAction}
+                className="h-[40px] w-full rounded-[8px] border-[#0C4149] bg-white text-[#0C4149] shadow-none hover:bg-white hover:text-[#0C4149] sm:w-auto"
+              >
+                {actionLabel}
+              </Button>
+            </div>
+          )
+        })}
       </div>
 
       <input
@@ -675,6 +1102,44 @@ function DashboardDocumentsPanel() {
         aria-hidden
       />
     </section>
+  )
+}
+
+function FileTextIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <path
+        d="M7.2 2.9H12.2L16 6.7V15.8C16 16.3 15.6 16.7 15.1 16.7H7.2C6.7 16.7 6.3 16.3 6.3 15.8V3.8C6.3 3.3 6.7 2.9 7.2 2.9Z"
+        stroke="#0C4149"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12.1 2.9V6.2C12.1 6.5 12.4 6.8 12.7 6.8H16"
+        stroke="#0C4149"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8 10H12.4"
+        stroke="#0C4149"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8 12.7H11.3"
+        stroke="#0C4149"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+    </svg>
   )
 }
 
@@ -725,7 +1190,7 @@ function ContactRow({
         <div className="min-w-0">
           <h3 className="text-[16px] font-bold text-[#0C4149]">{title}</h3>
           <p className="mt-2 text-[15px] font-medium text-[#0C4149]">{value}</p>
-          <p className="mt-1 text-[14px] text-[#0C414980]">{note}</p>
+          <p className="mt-1 text-[14px] text-[#0C4149CC]">{note}</p>
         </div>
       </div>
     </div>
@@ -773,7 +1238,7 @@ function ReservationStatusStep({
       <div className="min-w-0">
         <p className="text-[14px] font-normal leading-snug text-[#0C4149]">{title}</p>
         {subtitle != null && subtitleTone === "muted" ? (
-          <p className="mt-1 text-[12px] font-normal leading-snug text-[#0C414980]">
+          <p className="mt-1 text-[12px] font-normal leading-snug text-[#0C4149CC]">
             {subtitle}
           </p>
         ) : null}

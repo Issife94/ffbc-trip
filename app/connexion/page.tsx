@@ -74,7 +74,7 @@ export default function ConnexionPage() {
             <h1 className="text-center text-[30px] font-bold uppercase tracking-wide text-[#0C4149]">
               Vérification pour vous connecter
             </h1>
-            <p className="mt-2 text-center text-[14px] text-[#0C414980]">
+            <p className="mt-2 text-center text-[14px] text-[#0C4149CC]">
               Un code a été envoyé à {email || "votre email"}
             </p>
 

@@ -50,7 +50,7 @@ export function ParticipantSelectionCard({
             >
               <SelectTrigger 
                 id="participants" 
-                className={`w-full h-11 cursor-pointer rounded-lg border-[#0C414933] transition-colors hover:border-[#0C414966] data-[state=open]:border-[#0C4149] ${numberOfParticipants ? 'text-[#0C4149]' : 'text-[#0C414980]'}`}
+                className={`w-full h-11 cursor-pointer rounded-lg border-[#0C414933] transition-colors hover:border-[#0C414966] data-[state=open]:border-[#0C4149] ${numberOfParticipants ? 'text-[#0C4149]' : 'text-[#0C4149CC]'}`}
               >
                 <SelectValue placeholder="Nombre de participants" />
               </SelectTrigger>

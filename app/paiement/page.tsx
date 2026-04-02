@@ -289,15 +289,15 @@ export default function PaymentPage() {
           {paymentMethod === "transfer" && (
             <div className="space-y-6">
               <div>
-                <p className="text-[12px] uppercase text-[#0C4149] opacity-60 font-bold mb-1">Titulaire du compte</p>
+                <p className="text-[12px] uppercase text-[#0C4149CC] font-bold mb-1">Titulaire du compte</p>
                 <p className="text-[15px] font-bold text-[#0C4149]">FFBC TRIP</p>
               </div>
               <div>
-                <p className="text-[12px] uppercase text-[#0C4149] opacity-60 font-bold mb-1">IBAN</p>
+                <p className="text-[12px] uppercase text-[#0C4149CC] font-bold mb-1">IBAN</p>
                 <p className="text-[15px] font-bold text-[#0C4149] tracking-wider">FR76 0562 03354 032654 00</p>
               </div>
               <div>
-                <p className="text-[12px] uppercase text-[#0C4149] opacity-60 font-bold mb-1">BIC</p>
+                <p className="text-[12px] uppercase text-[#0C4149CC] font-bold mb-1">BIC</p>
                 <p className="text-[15px] font-bold text-[#0C4149]">BMPADCDSVVD</p>
               </div>
             </div>

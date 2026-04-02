@@ -15,7 +15,7 @@
   --secondary: #FAFDFD;
   --secondary-foreground: #0C4149;
   --muted: #FAFDFD;
-  --muted-foreground: #0C414980;
+  --muted-foreground: #0C4149CC;
   --accent: #FA673E;
   --accent-foreground: #FFFFFF;
   --destructive: #FA673E;
@@ -29,7 +29,7 @@
   --chart-2: #FA673E;
   --chart-3: #0DBF78;
   --chart-4: #DFD400;
-  --chart-5: #0C414980;
+  --chart-5: #0C4149CC;
   --radius: 0.5rem;
   --crown: #DFD400;
   --sidebar: #FAFDFD;

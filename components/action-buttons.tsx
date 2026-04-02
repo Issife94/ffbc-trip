@@ -27,7 +27,7 @@ export function ActionButtons({
       ) : (
         <Button
           disabled
-          className="flex-1 w-full h-[49px] bg-[#FA673E] hover:bg-[#FF592A] text-white font-bold rounded-[8px] text-[15px] disabled:opacity-60 disabled:cursor-not-allowed"
+          className="flex-1 w-full h-[49px] bg-[#FA673E] hover:bg-[#FF592A] text-white font-bold rounded-[8px] text-[15px] disabled:opacity-100 disabled:cursor-not-allowed"
         >
           {payLabel}
           <ArrowRight className="size-4 ml-1" />
