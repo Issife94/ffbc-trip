@@ -10,10 +10,22 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
     pathname === "/connexion" ||
     pathname === "/verification"
 
+  const isDashboard = pathname?.startsWith("/dashboard") ?? false
+
   return (
     <>
       {!hideNavbar ? <Navbar /> : null}
-      <div className={hideNavbar ? "" : "pt-12"}>{children}</div>
+      <div
+        className={
+          hideNavbar
+            ? ""
+            : isDashboard
+              ? "pt-6 sm:pt-12"
+              : "pt-12"
+        }
+      >
+        {children}
+      </div>
     </>
   )
 }

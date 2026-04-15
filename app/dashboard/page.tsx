@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { AddParticipantModal } from "@/components/add-participant-modal"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Participant } from "@/app/page"
+import { createClient } from "@/src/lib/supabase/client"
 
 const ADULT_PRICE = 1500
 const CHILD_PRICE = 1000
@@ -84,6 +85,7 @@ const initialParticipants: Participant[] = [
 
 export default function DashboardPage() {
   const router = useRouter()
+  const supabase = createClient()
   const searchParams = useSearchParams()
   const initialTab = searchParams.get("tab")
   const getTabFromQuery = (): TabId => {
@@ -97,6 +99,7 @@ export default function DashboardPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null)
   const [optionQty, setOptionQty] = useState(1)
+  const [currentUserEmail, setCurrentUserEmail] = useState("")
   type RightOptionId = (typeof mockOptionsSupp)[number]["id"]
   const [optionsSuppState, setOptionsSuppState] = useState<
     Record<RightOptionId, { checked: boolean; qty: number }>
@@ -113,6 +116,25 @@ export default function DashboardPage() {
       setActiveTab(tab as TabId)
     }
   }, [searchParams, activeTab])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadCurrentUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (isMounted) {
+        setCurrentUserEmail(user?.email ?? "")
+      }
+    }
+
+    void loadCurrentUser()
+
+    return () => {
+      isMounted = false
+    }
+  }, [supabase])
 
   const handleTabChange = (tabId: TabId) => {
     setActiveTab(tabId)
@@ -241,13 +263,23 @@ export default function DashboardPage() {
     window.localStorage.setItem("current_payment", JSON.stringify(payload))
   }
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push("/connexion")
+  }
+
   return (
     <div className="min-h-screen bg-[#FAFDFD] font-sans text-[#0C4149] antialiased">
-      <main className="mx-auto max-w-[1000px] px-6 pb-16 pt-8 sm:px-8 sm:pt-10">
+      <main className="mx-auto max-w-[1000px] px-6 pb-14 pt-0 sm:pb-16 sm:pt-8 lg:px-8 lg:pt-10">
         <header>
-          <h1 className="text-2xl font-bold uppercase leading-tight tracking-wide text-[#0C4149]">
+          <h1 className="text-xl font-bold uppercase leading-tight tracking-wide text-[#0C4149] sm:text-2xl">
             {trip.title}
           </h1>
+          {currentUserEmail ? (
+            <p className="mt-1 text-[14px] text-[#0C4149CC]">
+              Connecté en tant que {currentUserEmail}
+            </p>
+          ) : null}
           <div className="mt-1 flex items-center gap-2 text-[15px] font-normal text-[#0C4149]">
             <Calendar className="size-4 shrink-0 text-[#0C4149]" strokeWidth={2} aria-hidden />
             <span>Du {trip.dateDepart} au {trip.dateRetour}</span>
@@ -255,7 +287,7 @@ export default function DashboardPage() {
         </header>
 
         <section
-          className="mt-5 mb-8 rounded-[8px] border border-[#0C414933] bg-white px-5 py-7 shadow-none sm:mt-6 sm:px-8 sm:py-8"
+          className="mb-6 mt-5 rounded-[8px] border border-[#0C414933] bg-white px-4 py-5 shadow-none sm:mb-8 sm:mt-6 sm:px-8 sm:py-8"
           aria-label="Statut de la réservation"
         >
           <h2 className="mb-8 text-[15px] font-bold text-[#0C4149]">
@@ -290,7 +322,7 @@ export default function DashboardPage() {
         </section>
 
         <nav
-          className="mb-6 flex flex-wrap gap-6 sm:gap-8"
+          className="mb-6 flex gap-5 overflow-x-auto whitespace-nowrap pb-1 sm:gap-8"
           role="tablist"
           aria-label="Navigation du tableau de bord"
         >
@@ -396,13 +428,11 @@ export default function DashboardPage() {
           }}
         />
 
-        <footer className="mt-14 border-t border-[#0C414933] pt-8">
+        <footer className="mt-10 border-t border-[#0C414933] pt-6 sm:mt-14 sm:pt-8">
           <button
             type="button"
-            onClick={() => {
-              /* auth */
-            }}
-            className="ml-auto flex cursor-pointer items-center gap-2 bg-transparent text-sm font-medium text-[#0C4149] underline underline-offset-[3px] decoration-[#0C4149]"
+            onClick={handleSignOut}
+            className="ml-auto flex w-full cursor-pointer items-center justify-center gap-2 bg-transparent text-sm font-medium text-[#0C4149] underline underline-offset-[3px] decoration-[#0C4149] sm:w-auto sm:justify-end"
           >
             <LogOut className="size-4 shrink-0 text-[#0C4149]" strokeWidth={2} aria-hidden />
             Se déconnecter

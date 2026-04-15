@@ -89,7 +89,7 @@ export default function BookingSummaryPage() {
   return (
     <div className="min-h-screen bg-[#FAFDFD]">
       
-      <main className="mx-auto max-w-[640px] px-6 pb-12">
+      <main className="mx-auto max-w-[640px] px-6 pb-10 sm:pb-12">
         <div className="flex flex-col gap-6">
           <TripCard
             destination={tripData.destination}
@@ -113,7 +113,7 @@ export default function BookingSummaryPage() {
             onRemoveParticipant={removeParticipant}
           />
 
-          <section className="w-full max-w-6xl rounded-[8px] border border-[#0C414933] bg-white p-6 shadow-none">
+          <section className="w-full rounded-[8px] border border-[#0C414933] bg-white p-4 shadow-none sm:p-6">
             <h2 className="mb-4 text-[15px] font-semibold text-[#0C4149]">
               Options de séjour
             </h2>

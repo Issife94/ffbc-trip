@@ -114,12 +114,12 @@ export default function PaymentPage() {
     <div className="min-h-screen bg-[#FAFDFD] pb-20">
       <main className="mx-auto max-w-[1120px] space-y-6 px-6">
         {/* Titre PAIEMENT */}
-        <div className="bg-white border border-[#0C414933] p-6 rounded-[8px]">
+        <div className="bg-white border border-[#0C414933] rounded-[8px] p-4 sm:p-6">
           <h2 className="text-[15px] font-black uppercase text-[#0C4149]">Paiement</h2>
         </div>
 
         {/* Modes de paiement */}
-        <div className="bg-white border border-[#0C414933] p-6 rounded-[8px]">
+        <div className="bg-white border border-[#0C414933] rounded-[8px] p-4 sm:p-6">
           <label className="mb-4 block text-[14px] font-medium text-[#0C4149]">
             Sélectionner le mode paiement
           </label>
@@ -149,7 +149,7 @@ export default function PaymentPage() {
           </div>
         </div>
 
-        <section className="rounded-[8px] border border-[#0C414933] bg-white p-6">
+        <section className="rounded-[8px] border border-[#0C414933] bg-white p-4 sm:p-6">
           <h3 className="text-[15px] font-bold text-[#0C4149]">Votre commande</h3>
           <div className="mt-4 flex items-center justify-between text-[14px] text-[#0C4149]">
             <span>{participantsCount} participant(s)</span>
@@ -170,9 +170,9 @@ export default function PaymentPage() {
           {paymentData.options.length > 0 ? (
             <div className="mt-4 border-t border-[#0C414933] pt-4 space-y-2">
               {paymentData.options.map((option, index) => (
-                <div key={`${option.label}-${index}`} className="flex items-center justify-between text-[14px] text-[#0C4149]">
-                  <span>{option.label}</span>
-                  <span className="font-bold">{option.price}€</span>
+                <div key={`${option.label}-${index}`} className="flex items-start justify-between gap-4 text-[14px] text-[#0C4149]">
+                  <span className="min-w-0 break-words">{option.label}</span>
+                  <span className="shrink-0 font-bold">{option.price}€</span>
                 </div>
               ))}
             </div>
@@ -199,11 +199,11 @@ export default function PaymentPage() {
         </section>
 
         {/* Contenu Dynamique */}
-        <div className="bg-white border border-[#0C414933] p-6 rounded-[8px]">
+        <div className="bg-white border border-[#0C414933] rounded-[8px] p-4 sm:p-6">
           {paymentMethod === "card" && (
             <div className="space-y-6">
               <h3 className="text-[14px] font-bold text-[#0C4149]">Prix estimé</h3>
-              <div className="flex justify-between items-center text-[15px]">
+              <div className="flex items-center justify-between gap-4 text-[15px]">
                 <span className="text-[#0C4149] opacity-70">👤 {participantsCount} participant(s)</span>
                 <span className="font-bold text-[#0C4149]">{totalTripPrice}€</span>
               </div>
@@ -331,7 +331,7 @@ export default function PaymentPage() {
 
         {/* Boutons */}
         {paymentMethod === "card" ? (
-          <div className="flex flex-col sm:flex-row gap-8 pt-4">
+          <div className="flex flex-col gap-4 pt-4 sm:flex-row sm:gap-8">
             <Button
               disabled={!isCustomAmountValid}
               onClick={handleValidatePayment}
