@@ -1,0 +1,135 @@
+# Cursor Rules — FFBC Trip
+
+## STACK
+- Next.js 14 App Router + TypeScript strict
+- Tailwind CSS (pas de styled-components)
+- shadcn/ui (composants dans components/ui/)
+- Supabase (auth + DB + storage)
+- Resend (emails)
+
+## RÈGLES ABSOLUES
+- Jamais de `any` en TypeScript
+- Jamais de logique métier côté frontend
+- Jamais de données sensibles dans localStorage
+- Toujours utiliser les composants shadcn existants
+- Toujours utiliser les couleurs du design system
+- Jamais inventer de nouvelles couleurs ou fonts
+- Toujours Cairo comme font
+
+## COULEURS (ne jamais dévier)
+- Primary : #0C4149
+- Accent : #FA673E
+- Accent hover : #FF592A
+- Background : #FAFDFD
+- Surface : #FFFFFF
+- Success : #0DBF78
+- Teal : #0DAABF
+- Error : #D80012
+- Crown : #DFD400
+- Border : #0C414933 (20% opacité)
+- Border strong : #0C414980 (50% opacité)
+- Text primary : #0C4149
+- Text muted : #0C4149CC
+
+## FONT
+- Cairo uniquement (Google Fonts)
+- Weights : 400, 500, 600, 700
+- Jamais Inter, Roboto ou system fonts
+
+## COMPOSANTS UI DISPONIBLES (components/ui/)
+accordion, alert-dialog, alert, aspect-ratio,
+avatar, badge, breadcrumb, button-group, button,
+calendar, card, carousel, chart, checkbox,
+collapsible, command, context-menu, dialog,
+drawer, dropdown-menu, empty, field, form,
+hover-card, input-group, input-otp, input,
+item, kbd, label, menubar, navigation-menu,
+pagination, popover, progress, radio-group,
+resizable, scroll-area, select, separator,
+sheet, sidebar, skeleton, slider, sonner,
+spinner, switch, table, tabs, textarea,
+toast, toaster, toggle-group, toggle, tooltip
+
+## COMPOSANTS CUSTOM (components/)
+- action-buttons.tsx
+- add-participant-modal.tsx
+- app-frame.tsx
+- navbar.tsx
+- participant-info-card.tsx
+- participant-selection-card.tsx
+- price-estimate-card.tsx
+- theme-provider.tsx
+- trip-card.tsx
+
+## STRUCTURE DOSSIERS
+app/
+connexion/page.tsx
+dashboard/page.tsx
+inscription/page.tsx
+paiement/page.tsx
+verification/page.tsx
+components/
+ui/          → shadcn components
+connexion/   → composants auth
+custom/      → composants métier
+hooks/
+lib/
+supabase/
+client.ts  → browser client
+server.ts  → server client
+src/
+styles/
+
+## SUPABASE
+- Utiliser createClient() depuis lib/supabase/client.ts côté client
+- Utiliser createClient() depuis lib/supabase/server.ts côté serveur
+- Jamais la service role key côté frontend
+- RLS activé sur toutes les tables
+- Toujours vérifier le rôle admin côté serveur
+
+## SÉCURITÉ
+- Logique métier → toujours côté serveur
+- Statuts réservation → jamais modifiés côté frontend
+- Paiements → validés uniquement par admin ou webhook Stripe
+- Contrat non signé → impossible de solder
+
+## LOGIQUE MÉTIER
+- Acompte = 35% du total
+- Pré-réservation expire J+10
+- Solde deadline = départ - 40 jours
+- Documents débloqués J-30 avant départ
+- ANCV max 500€ par réservation
+- Sans contrat signé → blocage du solde
+
+## TYPES DE VOYAGE ET DOCUMENTS
+famille/adulte :
+  - Passeport
+  - ESTA
+
+ado :
+  - Passeport
+  - ESTA
+  - Livret de famille
+  - AST
+  - CNI ou Passeport du parent signataire
+  - Copie carnet de santé
+  - Fiche sanitaire de liaison
+
+## STATUTS RÉSERVATION
+PRE_RESERVATION → CONFIRMEE → COMPLETE
+                ↓           ↓
+              EXPIREE     ANNULEE
+
+## EMAILS (Resend)
+Client : inscription, pré-réservation, rappel J+9,
+         expiration, confirmation solde
+Admin : nouvelle réservation, document uploadé,
+        paiement en attente, contrat signé
+
+## CE QU'ON NE FAIT PAS
+- Pas de Redux ou Zustand
+- Pas de CSS modules
+- Pas de styled-components
+- Pas de logique métier dans les composants UI
+- Pas de console.log en production
+- Pas de suppressions de réservations (statuts uniquement)
