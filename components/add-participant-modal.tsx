@@ -11,7 +11,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import type { Participant } from "@/app/page"
+
+type Participant = {
+  id: string
+  firstName: string
+  lastName: string
+  phone: string
+  email: string
+  birthDate: string
+  address: string
+  isOrganizer: boolean
+}
 
 const emptyForm = {
   lastName: "",
@@ -39,6 +49,8 @@ export function AddParticipantModal({
   onSave,
 }: AddParticipantModalProps) {
   const [formData, setFormData] = useState(emptyForm)
+  const [addressSearchTerm, setAddressSearchTerm] = useState("")
+  const [addressSuggestions, setAddressSuggestions] = useState<string[]>([])
 
   useEffect(() => {
     if (!open) return
@@ -55,7 +67,52 @@ export function AddParticipantModal({
     } else {
       setFormData(emptyForm)
     }
+    setAddressSearchTerm("")
+    setAddressSuggestions([])
   }, [open, editingParticipant])
+
+  useEffect(() => {
+    const query = addressSearchTerm.trim()
+
+    if (query.length < 3) {
+      setAddressSuggestions([])
+      return
+    }
+
+    const controller = new AbortController()
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`,
+          { signal: controller.signal },
+        )
+
+        if (!response.ok) {
+          setAddressSuggestions([])
+          return
+        }
+
+        const data: {
+          features?: Array<{ properties?: { label?: string } }>
+        } = await response.json()
+
+        const suggestions = (data.features ?? [])
+          .map((feature) => feature.properties?.label ?? "")
+          .filter((label) => label.length > 0)
+          .slice(0, 5)
+
+        setAddressSuggestions(suggestions)
+      } catch {
+        setAddressSuggestions([])
+      }
+    }, 300)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+      controller.abort()
+    }
+  }, [addressSearchTerm])
 
   const editingId = editingParticipant?.id ?? null
   const isEditMode = editingId !== null
@@ -71,6 +128,8 @@ export function AddParticipantModal({
     e.preventDefault()
     onSave(formData, editingId)
     setFormData(emptyForm)
+    setAddressSearchTerm("")
+    setAddressSuggestions([])
   }
 
   const isFormValid =
@@ -168,14 +227,40 @@ export function AddParticipantModal({
             <Label htmlFor="address" className="text-sm font-medium text-[#0C4149]">
               Adresse
             </Label>
-            <Input
-              id="address"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              placeholder="123 Rue de Paris, 75001 Paris"
-              className="border-[#0C414933]"
-              required
-            />
+            <div className="relative">
+              <Input
+                id="address"
+                value={formData.address}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setFormData({ ...formData, address: value })
+                  setAddressSearchTerm(value)
+                }}
+                placeholder="123 Rue de Paris, 75001 Paris"
+                className="border-[#0C414933]"
+                required
+              />
+
+              {addressSuggestions.length > 0 ? (
+                <ul className="absolute top-full z-50 mt-1 w-full overflow-hidden rounded-[8px] border border-[#0C414933] bg-white">
+                  {addressSuggestions.map((suggestion) => (
+                    <li key={suggestion}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData({ ...formData, address: suggestion })
+                          setAddressSearchTerm("")
+                          setAddressSuggestions([])
+                        }}
+                        className="w-full px-4 py-[10px] text-left text-[14px] text-[#0C4149] hover:bg-[#FAFDFD]"
+                      >
+                        {suggestion}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
           </div>
 
           <div className="flex items-center gap-2">

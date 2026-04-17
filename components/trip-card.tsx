@@ -1,14 +1,15 @@
 import { Card, CardContent } from "@/components/ui/card"
-import { Calendar, Euro } from "lucide-react"
+import { Calendar, Euro, Users } from "lucide-react"
 
 interface TripCardProps {
   destination: string
   dateDepart: string
   dateRetour: string
   price: number
+  placesRestantes?: number | null
 }
 
-export function TripCard({ destination, dateDepart, dateRetour, price }: TripCardProps) {
+export function TripCard({ destination, dateDepart, dateRetour, price, placesRestantes }: TripCardProps) {
   return (
     <Card className="border-[#0C414933] bg-white rounded-[8px] shadow-none">
       <CardContent className="p-6">
@@ -30,6 +31,13 @@ export function TripCard({ destination, dateDepart, dateRetour, price }: TripCar
               Prix de base : {price}€ par personne
             </span>
           </div>
+
+          {placesRestantes != null ? (
+            <div className="flex items-center gap-3 text-primary">
+              <Users className="size-4 opacity-70" />
+              <span className="text-[15px]">Places restantes : {placesRestantes}</span>
+            </div>
+          ) : null}
         </div>
       </CardContent>
     </Card>
